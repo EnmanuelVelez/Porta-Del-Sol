@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, simpledialog
 import pyodbc
 
 def connect_to_database():
@@ -14,7 +14,6 @@ def login():
     username = username_entry.get()
     password = password_entry.get()
 
-    # Check if username and password are correct
     if username == "Enmanuel" and password == "password":
         messagebox.showinfo("Login Successful", "Welcome, " + username + "!")
         main_app = MainApplication(username)
@@ -27,9 +26,8 @@ class MainApplication(tk.Tk):
         super().__init__(*args, **kwargs)
         self.title("Porta del Sol Project")
         self.username = username
-        self.configure(bg="#ADD8E6")  # Light blue background color
+        self.configure(bg="#ADD8E6")
         
-        # Menu bar
         menubar = tk.Menu(self)
         home_menu = tk.Menu(menubar, tearoff=0)
         home_menu.add_command(label="Home", command=self.open_home)
@@ -38,19 +36,15 @@ class MainApplication(tk.Tk):
         menubar.add_cascade(label="Home", menu=home_menu)
         self.config(menu=menubar)
 
-        # Company name label
         company_label = tk.Label(self, text="Porta del Sol Memorial Services, Inc.", font=("Helvetica", 16))
         company_label.grid(row=0, column=0, padx=10, pady=10, columnspan=3)
 
-        # User name label
         user_label = tk.Label(self, text="Welcome, " + username, font=("Helvetica", 12))
         user_label.grid(row=1, column=0, padx=10, pady=10, sticky="e")
 
-        # Sign out button
         signout_button = tk.Button(self, text="Sign Out", command=self.sign_out)
         signout_button.grid(row=1, column=1, padx=10, pady=10, sticky="e")
 
-        # Tabs for different sections
         tabs = ["Customers", "Contracts", "Finance", "Cemetery", "Medical", "Demographic Registry", "Forensic Sciences Institute"]
         for i, tab in enumerate(tabs):
             button = tk.Button(self, text=tab, command=lambda t=tab: self.open_tab(t))
@@ -89,18 +83,92 @@ class CustomerWindow(tk.Toplevel):
         self.tree.heading("CustomerPhoneNumber", text="Phone Number")
         self.tree.grid(row=0, column=0, sticky="nsew")
 
+        add_button = tk.Button(self, text="Add Customer", command=self.add_customer)
+        add_button.grid(row=1, column=0, pady=10)
+
+        delete_button = tk.Button(self, text="Delete Customer", command=self.delete_customer)
+        delete_button.grid(row=1, column=1, pady=10)
+
         self.load_customers()
 
     def load_customers(self):
         conn = connect_to_database()
         cursor = conn.cursor()
         try:
+            # Clear existing entries
+            for item in self.tree.get_children():
+                self.tree.delete(item)
+
             cursor.execute("SELECT CustomerNum, CustomerID, CustomerFirstName, CustomerLastName, CustomerEmail, CustomerPhoneNumber FROM Customer")
             rows = cursor.fetchall()
             for row in rows:
                 self.tree.insert("", "end", values=row)
         except Exception as e:
             messagebox.showerror("Error loading data", str(e))
+        finally:
+            cursor.close()
+            conn.close()
+
+    def add_customer(self):
+        AddCustomerDialog(self)
+        self.load_customers()  # Refresh the list after adding
+
+    def delete_customer(self):
+        selected_item = self.tree.selection()[0]
+        customer_id = self.tree.item(selected_item)['values'][1]
+        conn = connect_to_database()
+        cursor = conn.cursor()
+        try:
+            cursor.execute("DELETE FROM Customer WHERE [CustomerID] = ?", (customer_id,))
+            conn.commit()
+            self.tree.delete(selected_item)
+            messagebox.showinfo("Success", "Customer deleted successfully")
+        except Exception as e:
+            messagebox.showerror("Error", "Failed to delete customer")
+        finally:
+            cursor.close()
+            conn.close()
+
+class AddCustomerDialog(simpledialog.Dialog):
+    def body(self, master):
+        tk.Label(master, text="Customer Number:").grid(row=0)
+        tk.Label(master, text="Customer ID:").grid(row=1)
+        tk.Label(master, text="First Name:").grid(row=2)
+        tk.Label(master, text="Last Name:").grid(row=3)
+        tk.Label(master, text="Email:").grid(row=4)
+        tk.Label(master, text="Phone Number:").grid(row=5)
+
+        self.e1 = tk.Entry(master)
+        self.e2 = tk.Entry(master)
+        self.e3 = tk.Entry(master)
+        self.e4 = tk.Entry(master)
+        self.e5 = tk.Entry(master)
+        self.e6 = tk.Entry(master)
+
+        self.e1.grid(row=0, column=1)
+        self.e2.grid(row=1, column=1)
+        self.e3.grid(row=2, column=1)
+        self.e4.grid(row=3, column=1)
+        self.e5.grid(row=4, column=1)
+        self.e6.grid(row=5, column=1)
+
+        return self.e1  # initial focus
+
+    def apply(self):
+        num = self.e1.get()
+        cid = self.e2.get()
+        fname = self.e3.get()
+        lname = self.e4.get()
+        email = self.e5.get()
+        phone = self.e6.get()
+        conn = connect_to_database()
+        cursor = conn.cursor()
+        try:
+            cursor.execute("INSERT INTO Customer (CustomerNum, CustomerID, CustomerFirstName, CustomerLastName, CustomerEmail, CustomerPhoneNumber) VALUES (?, ?, ?, ?, ?, ?)", (num, cid, fname, lname, email, phone))
+            conn.commit()
+            messagebox.showinfo("Success", "Customer added successfully")
+        except Exception as e:
+            messagebox.showerror("Error", "Failed to add customer")
         finally:
             cursor.close()
             conn.close()
