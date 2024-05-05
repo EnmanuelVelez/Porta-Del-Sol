@@ -21,114 +21,6 @@ def login():
     else:
         messagebox.showerror("Login Failed", "Invalid username or password")
 
-class MainApplication(tk.Tk):
-    def __init__(self, username, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.title("Porta del Sol Project")
-        self.username = username
-        self.configure(bg="#ADD8E6")
-        
-        menubar = tk.Menu(self)
-        home_menu = tk.Menu(menubar, tearoff=0)
-        home_menu.add_command(label="Home", command=self.open_home)
-        home_menu.add_command(label="Settings", command=self.open_settings)
-        home_menu.add_command(label="Notifications", command=self.open_notifications)
-        menubar.add_cascade(label="Home", menu=home_menu)
-        self.config(menu=menubar)
-
-        company_label = tk.Label(self, text="Porta del Sol Memorial Services, Inc.", font=("Helvetica", 16))
-        company_label.grid(row=0, column=0, padx=10, pady=10, columnspan=3)
-
-        user_label = tk.Label(self, text="Welcome, " + username, font=("Helvetica", 12))
-        user_label.grid(row=1, column=0, padx=10, pady=10, sticky="e")
-
-        signout_button = tk.Button(self, text="Sign Out", command=self.sign_out)
-        signout_button.grid(row=1, column=1, padx=10, pady=10, sticky="e")
-
-        tabs = ["Customers", "Contracts", "Finance", "Cemetery", "Medical", "Demographic Registry", "Forensic Sciences Institute"]
-        for i, tab in enumerate(tabs):
-            button = tk.Button(self, text=tab, command=lambda t=tab: self.open_tab(t))
-            button.grid(row=2, column=i, padx=10, pady=10)
-
-    def open_home(self):
-        print("Opening Home Page")
-    
-    def open_settings(self):
-        print("Opening Settings Page")
-    
-    def open_notifications(self):
-        print("Opening Notifications Page")
-    
-    def sign_out(self):
-        self.destroy()
-    
-    def open_tab(self, tab):
-        if tab == "Customers":
-            CustomerWindow(self)
-        else:
-            print(f"Opening {tab} Tab")
-
-class CustomerWindow(tk.Toplevel):
-    def __init__(self, parent, *args, **kwargs):
-        super().__init__(parent, *args, **kwargs)
-        self.title("Customer Details")
-        self.configure(bg="#ADD8E6")
-
-        self.tree = ttk.Treeview(self, columns=("CustomerNum", "CustomerID", "CustomerFirstName", "CustomerLastName", "CustomerEmail", "CustomerPhoneNumber"), show="headings")
-        self.tree.heading("CustomerNum", text="Customer Number")
-        self.tree.heading("CustomerID", text="Customer ID")
-        self.tree.heading("CustomerFirstName", text="First Name")
-        self.tree.heading("CustomerLastName", text="Last Name")
-        self.tree.heading("CustomerEmail", text="Email")
-        self.tree.heading("CustomerPhoneNumber", text="Phone Number")
-        self.tree.grid(row=0, column=0, sticky="nsew")
-
-        add_button = tk.Button(self, text="Add Customer", command=self.add_customer)
-        add_button.grid(row=1, column=0, pady=10)
-
-        delete_button = tk.Button(self, text="Delete Customer", command=self.delete_customer)
-        delete_button.grid(row=1, column=1, pady=10)
-
-        self.load_customers()
-
-    def load_customers(self):
-        conn = connect_to_database()
-        cursor = conn.cursor()
-        try:
-            # Clear existing entries
-            for item in self.tree.get_children():
-                self.tree.delete(item)
-
-            cursor.execute("SELECT CustomerNum, CustomerID, CustomerFirstName, CustomerLastName, CustomerEmail, CustomerPhoneNumber FROM Customer")
-            rows = cursor.fetchall()
-            for row in rows:
-                self.tree.insert("", "end", values=row)
-        except Exception as e:
-            messagebox.showerror("Error loading data", str(e))
-        finally:
-            cursor.close()
-            conn.close()
-
-    def add_customer(self):
-        AddCustomerDialog(self)
-        self.load_customers()  # Refresh the list after adding
-
-    def delete_customer(self):
-        selected_item = self.tree.selection()[0]
-        customer_id = self.tree.item(selected_item)['values'][1]
-        conn = connect_to_database()
-        cursor = conn.cursor()
-        try:
-            cursor.execute("DELETE FROM Customer WHERE [CustomerID] = ?", (customer_id,))
-            conn.commit()
-            self.tree.delete(selected_item)
-            messagebox.showinfo("Success", "Customer deleted successfully")
-        except Exception as e:
-            messagebox.showerror("Error", "Failed to delete customer")
-        finally:
-            cursor.close()
-            conn.close()
-
 class AddCustomerDialog(simpledialog.Dialog):
     def body(self, master):
         tk.Label(master, text="Customer Number:").grid(row=0)
@@ -168,10 +60,148 @@ class AddCustomerDialog(simpledialog.Dialog):
             conn.commit()
             messagebox.showinfo("Success", "Customer added successfully")
         except Exception as e:
-            messagebox.showerror("Error", "Failed to add customer")
+            messagebox.showerror("Error", "Failed to add customer: " + str(e))
         finally:
             cursor.close()
             conn.close()
+
+class CustomerWindow(tk.Toplevel):
+    def __init__(self, parent, *args, **kwargs):
+        super().__init__(parent, *args, **kwargs)
+        self.title("Customer Details")
+        self.configure(bg="#ADD8E6")
+
+        self.tree = ttk.Treeview(self, columns=("CustomerNum", "CustomerID", "CustomerFirstName", "CustomerLastName", "CustomerEmail", "CustomerPhoneNumber"), show="headings")
+        self.tree.heading("CustomerNum", text="Customer Number")
+        self.tree.heading("CustomerID", text="Customer ID")
+        self.tree.heading("CustomerFirstName", text="First Name")
+        self.tree.heading("CustomerLastName", text="Last Name")
+        self.tree.heading("CustomerEmail", text="Email")
+        self.tree.heading("CustomerPhoneNumber", text="Phone Number")
+        self.tree.grid(row=0, column=0, sticky="nsew")
+
+        add_button = tk.Button(self, text="Add Customer", command=self.add_customer)
+        add_button.grid(row=1, column=0, pady=10)
+
+        delete_button = tk.Button(self, text="Delete Customer", command=self.delete_customer)
+        delete_button.grid(row=1, column=1, pady=10)
+
+        self.load_customers()
+
+    def load_customers(self):
+        conn = connect_to_database()
+        cursor = conn.cursor()
+        try:
+            for item in self.tree.get_children():
+                self.tree.delete(item)
+
+            cursor.execute("SELECT CustomerNum, CustomerID, CustomerFirstName, CustomerLastName, CustomerEmail, CustomerPhoneNumber FROM Customer")
+            rows = cursor.fetchall()
+            for row in rows:
+                self.tree.insert("", "end", values=row)
+        except Exception as e:
+            messagebox.showerror("Error loading data", str(e))
+        finally:
+            cursor.close()
+            conn.close()
+
+    def add_customer(self):
+        AddCustomerDialog(self)
+        self.load_customers()  # Refresh the list after adding
+
+    def delete_customer(self):
+        selected_item = self.tree.selection()[0]
+        customer_id = self.tree.item(selected_item)['values'][1]
+        conn = connect_to_database()
+        cursor = conn.cursor()
+        try:
+            cursor.execute("DELETE FROM Customer WHERE [CustomerID] = ?", (customer_id,))
+            conn.commit()
+            self.tree.delete(selected_item)
+            messagebox.showinfo("Success", "Customer deleted successfully")
+        except Exception as e:
+            messagebox.showerror("Error", "Failed to delete customer")
+        finally:
+            cursor.close()
+            conn.close()
+
+class GoodsContractsForm(tk.Toplevel):
+    def __init__(self, parent, *args, **kwargs):
+        super().__init__(parent, *args, **kwargs)
+        self.title("Goods Contracts Form")
+        self.configure(bg="#ADD8E6")
+
+        # Define the labels and entries for the form
+        labels_texts = ["Date", "Contract ID", "Customer Information", "Customer ID",
+                        "Employee ID", "Contract Date", "Service Types", "Customer Service Selected",
+                        "Customer Signature", "Final Price of Service"]
+        self.entries = {}
+        row = 0
+        for text in labels_texts:
+            tk.Label(self, text=text + ":", bg="#ADD8E6").grid(row=row, column=0, sticky="e", padx=10, pady=5)
+            entry = tk.Entry(self, width=25)
+            entry.grid(row=row, column=1, padx=10, pady=5)
+            self.entries[text] = entry
+            row += 1
+
+        # Submit button
+        submit_button = tk.Button(self, text="Submit", command=self.submit_form)
+        submit_button.grid(row=row, column=0, columnspan=2, pady=10)
+
+    def submit_form(self):
+        # Here you can define what to do with the data: save it to a file, send it over a network, etc.
+        data = {label: entry.get() for label, entry in self.entries.items()}
+        messagebox.showinfo("Form Submitted", "Data collected successfully!")
+        print(data)  # You might want to remove or change this in production.
+
+class MainApplication(tk.Tk):
+    def __init__(self, username, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.title("Porta del Sol Project")
+        self.username = username
+        self.configure(bg="#ADD8E6")
+        
+        menubar = tk.Menu(self)
+        home_menu = tk.Menu(menubar, tearoff=0)
+        home_menu.add_command(label="Home", command=self.open_home)
+        home_menu.add_command(label="Settings", command=self.open_settings)
+        home_menu.add_command(label="Notifications", command=self.open_notifications)
+        menubar.add_cascade(label="Home", menu=home_menu)
+        self.config(menu=menubar)
+
+        company_label = tk.Label(self, text="Porta del Sol Memorial Services, Inc.", font=("Helvetica", 16))
+        company_label.grid(row=0, column=0, padx=10, pady=10, columnspan=3)
+
+        user_label = tk.Label(self, text="Welcome, " + username, font=("Helvetica", 12))
+        user_label.grid(row=1, column=0, padx=10, pady=10, sticky="e")
+
+        signout_button = tk.Button(self, text="Sign Out", command=self.sign_out)
+        signout_button.grid(row=1, column=1, padx=10, pady=10, sticky="e")
+
+        tabs = ["Customers", "Goods Contracts", "Finance", "Cemetery", "Medical", "Demographic Registry", "Forensic Sciences Institute"]
+        for i, tab in enumerate(tabs):
+            button = tk.Button(self, text=tab, command=lambda t=tab: self.open_tab(t))
+            button.grid(row=2, column=i, padx=10, pady=10)
+
+    def open_home(self):
+        print("Opening Home Page")
+    
+    def open_settings(self):
+        print("Opening Settings Page")
+    
+    def open_notifications(self):
+        print("Opening Notifications Page")
+    
+    def sign_out(self):
+        self.destroy()
+    
+    def open_tab(self, tab):
+        if tab == "Customers":
+            CustomerWindow(self)
+        elif tab == "Goods Contracts":
+            GoodsContractsForm(self)
+        else:
+            print(f"Opening {tab} Tab")
 
 # Create main login window
 root = tk.Tk()
